@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ábaco virtual C · D · U</title>
+<!-- Fuentes infantiles (opcionales: sin internet se usan las del sistema) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* =========================================================
+   1. COLORES Y BASE
+   Mismos colores que el ábaco de 4 cifras: C amarillo, D rojo, U azul
+   ========================================================= */
+:root{
+  --c:#f5b800;  --c-dark:#7a5a00;  --c-soft:#fff4cc;
+  --d:#e5484d;  --d-dark:#a8262b;  --d-soft:#fde3e4;
+  --u:#2d7ff0;  --u-dark:#1650a3;  --u-soft:#e0ebfd;
+  --ink:#1f2340; --muted:#555a7a; --bg:#fff8ec; --line:#eadfc9;
+  --violet:#5b3fd6; --violet-dark:#3d2a9a; --green:#1fa25a; --green-dark:#0f6e39;
+}
+.c{--main:var(--c);--dark:var(--c-dark);--soft:var(--c-soft);--on:#3a2c00}
+.d{--main:var(--d);--dark:var(--d-dark);--soft:var(--d-soft);--on:#fff}
+.u{--main:var(--u);--dark:var(--u-dark);--soft:var(--u-soft);--on:#fff}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;min-height:100vh;color:var(--ink);font-family:'Nunito','Trebuchet MS','Segoe UI',system-ui,sans-serif;
+  background:var(--bg) radial-gradient(#f1e2c4 2px,transparent 2.5px) 0 0/30px 30px}
+button{font:inherit}
+button:focus-visible{outline:4px solid var(--violet);outline-offset:3px}
+main{max-width:1180px;margin:0 auto;padding:16px}
+.card{background:#fff;border:2px solid var(--line);border-radius:22px;box-shadow:0 5px 0 var(--line);padding:18px}
+.num{font-family:'Baloo 2','Trebuchet MS',sans-serif;font-weight:800}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* =========================================================
+   2. ENCABEZADO Y PESTAÑAS
+   ========================================================= */
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;
+  background:rgba(255,248,236,.95);backdrop-filter:blur(6px);border-bottom:2px solid var(--line)}
+.topbar h1{flex:1;margin:0;font-family:'Baloo 2',sans-serif;font-size:clamp(20px,3.4vw,28px);line-height:1.1;min-width:200px}
+.points{background:#fff;border:3px solid #f2cf6b;border-radius:999px;padding:8px 16px;font-weight:800;font-size:18px;white-space:nowrap}
+.points.pop{animation:pop .5s}
+.tabs{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:4px 0 16px}
+.tab{min-height:56px;padding:0 22px;border-radius:999px;border:3px solid var(--line);background:#fff;color:var(--ink);
+  font-size:19px;font-weight:800;cursor:pointer;box-shadow:0 4px 0 var(--line)}
+.tab[aria-selected="true"]{background:var(--violet);border-color:var(--violet-dark);color:#fff;box-shadow:0 4px 0 var(--violet-dark)}
+
+/* =========================================================
+   3. TARJETA DE TAREA
+   ========================================================= */
+.task h2{font-family:'Baloo 2',sans-serif;margin:0;font-size:clamp(24px,4vw,32px);line-height:1.15}
+.task .lead{font-size:19px;font-weight:700;color:var(--muted);margin:6px 0 0}
+.levels{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.lvl{display:flex;flex-direction:column;align-items:center;min-width:110px;padding:6px 14px;border-radius:16px;border:3px solid var(--line);
+  background:#fff;font-weight:800;font-size:17px;cursor:pointer;color:var(--ink);line-height:1.15}
+.lvl small{font-weight:700;color:var(--muted);font-size:13px}
+.lvl.on{border-color:var(--violet);background:#f4f0ff}
+.prompt{font-size:21px;font-weight:800;margin:14px 0 0;text-align:center}
+.target{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(64px,14vw,110px);text-align:center;line-height:1.05}
+.target-words{text-align:center;font-size:20px;font-weight:800;color:var(--muted);margin-top:-4px}
+.options{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.option{min-width:130px;min-height:80px;border-radius:22px;border:4px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;
+  font-family:'Baloo 2',sans-serif;font-weight:800;font-size:44px;box-shadow:0 5px 0 var(--line);transition:transform .1s}
+.option:active{transform:translateY(3px)}
+.option.correct{border-color:var(--green);background:#e0f6e9;box-shadow:0 5px 0 var(--green-dark)}
+.option.wrong{border-color:var(--d);background:var(--d-soft);opacity:.7;text-decoration:line-through}
+.option:disabled{cursor:default}
+.feedback{margin:14px auto 0;max-width:720px;border-radius:18px;font-size:19px;font-weight:700;text-align:center;line-height:1.45}
+.feedback:empty{display:none}
+.feedback.ok{background:#e3f7ea;border:3px solid var(--green);padding:14px 16px;animation:pop .45s}
+.feedback.hint{background:#fff6d6;border:3px solid var(--c);padding:14px 16px;animation:pop .45s}
+.feedback .eqline{font-family:'Baloo 2',sans-serif;font-size:clamp(20px,3.6vw,28px);font-weight:800;margin-top:4px}
+
+/* =========================================================
+   4. DISTRIBUCIÓN: ábaco a la izquierda, número y bloques a la derecha
+   ========================================================= */
+.board{display:grid;gap:16px;margin-top:16px}
+@media (min-width:920px){.board{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-items:start}}
+.side{display:grid;gap:16px}
+
+/* =========================================================
+   5. ÁBACO DIBUJADO (SVG)
+   ========================================================= */
+.abacus-card{padding:12px 12px 16px}
+#abacusSvg{display:block;width:100%;height:auto;max-height:68vh;margin:0 auto;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+#abacusSvg .hit{cursor:pointer}
+#abacusSvg.locked .hit{cursor:default}
+#abacusSvg .bead{transition:transform .55s cubic-bezier(.3,1.35,.5,1), opacity .35s}
+.bead-txt{font-family:'Baloo 2','Trebuchet MS',sans-serif;font-weight:800;font-size:17px;pointer-events:none}
+.colbar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
+.colctl{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border-radius:16px;background:var(--soft)}
+.cnt{font-weight:800;color:var(--dark);font-size:15px;line-height:1}
+.cnt b{font-family:'Baloo 2',sans-serif;font-size:28px}
+.cval{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:20px;color:var(--dark);line-height:1}
+.steps{display:grid;grid-template-columns:1fr 1fr;gap:6px;width:100%;max-width:130px}
+.step{height:48px;border-radius:14px;border:3px solid var(--main);background:#fff;color:var(--dark);font-size:28px;font-weight:800;cursor:pointer;line-height:1;padding:0}
+.step.plus{background:var(--main);color:var(--on);border-color:var(--dark)}
+.step:active{transform:scale(.94)}
+.locked-ui .steps{visibility:hidden}
+.tip{margin:10px 0 0;text-align:center;font-weight:700;color:var(--muted);font-size:15px}
+.canje{margin:12px auto 0;max-width:560px;padding:14px;border-radius:18px;background:#fff6d6;border:3px solid var(--c);
+  text-align:center;font-weight:800;font-size:18px;line-height:1.4;animation:pop .4s}
+.canje .btn{margin-top:10px}
+.shake{animation:shake .45s}
+
+/* =========================================================
+   6. PANEL DEL NÚMERO
+   ========================================================= */
+.numcard{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.numcard h3,.blocks h3{margin:0;font-size:21px;color:var(--muted)}
+.big{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(70px,12vw,110px);line-height:1;letter-spacing:3px}
+.dg.c{color:var(--c-dark)}.dg.d{color:var(--d-dark)}.dg.u{color:var(--u-dark)}
+.words{font-size:22px;font-weight:800;color:var(--violet)}
+.pv{border-collapse:separate;border-spacing:6px}
+.pv th{width:70px;height:40px;border-radius:12px;background:var(--main);color:var(--on);font-family:'Baloo 2',sans-serif;font-size:22px}
+.pv td{height:54px;border-radius:12px;background:var(--soft);color:var(--dark);font-family:'Baloo 2',sans-serif;font-size:32px;font-weight:800}
+.decomp,.units{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px}
+.chip{display:inline-block;padding:5px 12px;border-radius:12px;border:2px solid var(--main);background:var(--soft);color:var(--dark);
+  font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(19px,3vw,25px);line-height:1.2}
+.chip.total{background:var(--ink);border-color:var(--ink);color:#fff}
+.tag{display:inline-block;padding:3px 10px;border-radius:10px;background:var(--soft);color:var(--dark);border:2px solid var(--main);font-weight:800;font-size:17px}
+.op{font-weight:800;font-size:22px;color:var(--muted)}
+.empty-msg{font-weight:700;color:var(--muted);font-size:18px}
+
+/* =========================================================
+   7. BLOQUES DE BASE 10 (para imaginar la cantidad)
+   ========================================================= */
+.blocks-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}
+.bgroup{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:16px;background:var(--soft);border:3px solid var(--main);min-width:0}
+.pieces{display:flex;flex-wrap:wrap;gap:4px;align-items:flex-end;align-content:flex-end;min-height:52px;flex:1}
+.blabel{font-weight:800;font-size:14px;color:var(--dark);text-align:center;line-height:1.2}
+.blabel b{display:block;font-family:'Baloo 2',sans-serif;font-size:20px}
+.grid-bg{background-image:linear-gradient(rgba(0,0,0,.3) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,.3) 1px,transparent 1px)}
+.flat{display:block;width:44px;height:44px;background-color:var(--c);border:2px solid var(--c-dark);border-radius:3px;background-size:4.4px 4.4px}
+.rodb{display:block;width:11px;height:44px;background-color:var(--d);border:2px solid var(--d-dark);border-radius:2px;
+  background-image:linear-gradient(rgba(0,0,0,.35) 1px,transparent 1px);background-size:100% 4.4px}
+.cubeb{display:block;width:13px;height:13px;background:var(--u);border:2px solid var(--u-dark);border-radius:3px}
+.pieces .new{animation:pop .35s}
+.ghost{color:var(--muted);font-weight:700;font-size:14px;align-self:center;margin:auto}
+.blocks-hidden{text-align:center;font-weight:800;color:var(--muted);font-size:18px;padding:18px 0}
+
+/* =========================================================
+   8. BOTONES, AVISOS, CONFETI
+   ========================================================= */
+.controls{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:18px 0 6px}
+.btn{min-height:58px;padding:0 26px;border-radius:999px;border:3px solid var(--ink);background:#fff;color:var(--ink);font-size:20px;font-weight:800;
+  cursor:pointer;box-shadow:0 5px 0 var(--ink);transition:transform .1s}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--ink)}
+.btn.primary{background:var(--violet);border-color:var(--violet-dark);color:#fff;box-shadow:0 5px 0 var(--violet-dark)}
+.btn.next{background:var(--green);border-color:var(--green-dark);color:#fff;box-shadow:0 5px 0 var(--green-dark)}
+.btn.small{min-height:48px;font-size:17px;padding:0 18px}
+.toast{position:fixed;left:50%;bottom:20px;z-index:60;max-width:calc(100% - 32px);transform:translate(-50%,180%);background:var(--ink);color:#fff;
+  padding:14px 22px;border-radius:18px;font-weight:800;font-size:18px;text-align:center;transition:transform .3s}
+.toast.show{transform:translate(-50%,0)}
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:70;overflow:hidden}
+.confetti i{position:absolute;top:-24px;width:11px;height:17px;border-radius:3px;animation:fall linear forwards}
+@keyframes pop{0%{transform:scale(.85);opacity:0}60%{transform:scale(1.05);opacity:1}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+@keyframes fall{to{transform:translateY(112vh) rotate(760deg)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:560px){
+  main{padding:12px}.card{padding:14px}
+  .tab{font-size:16px;padding:0 14px;min-height:50px}
+  .flat{width:34px;height:34px;background-size:3.4px 3.4px}
+  .rodb{width:9px;height:34px;background-size:100% 3.4px}
+  .cubeb{width:11px;height:11px}
+  .bgroup{padding:6px}
+  .blabel{font-size:12px}
+  .option{min-width:96px;font-size:36px}
+  .btn{font-size:18px;padding:0 18px;min-height:54px}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>🧮 Ábaco virtual: Centenas · Decenas · Unidades</h1>
+  <div class="points" id="points" aria-live="polite">Puntos: 0 ⭐</div>
+</header>
+
+<main>
+  <!-- Pestañas de modos -->
+  <nav class="tabs" role="tablist" aria-label="Modos de juego">
+    <button class="tab" role="tab" data-mode="libre" aria-selected="true">🎨 Juego libre</button>
+    <button class="tab" role="tab" data-mode="construye" aria-selected="false">🧩 Construye el número</button>
+    <button class="tab" role="tab" data-mode="quees" aria-selected="false">🔎 ¿Qué número es?</button>
+  </nav>
+
+  <!-- Instrucción o reto actual -->
+  <section class="task card" id="task"></section>
+
+  <div class="board">
+    <!-- ÁBACO ABIERTO DIBUJADO -->
+    <section class="abacus-card card" id="abacusCard">
+      <svg id="abacusSvg" viewBox="0 0 600 560" role="img" aria-labelledby="svgTitle">
+        <title id="svgTitle">Ábaco de madera con tres varillas: centenas, decenas y unidades</title>
+        <defs>
+          <!-- Madera -->
+          <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#d39a5c"/><stop offset="1" stop-color="#9c6230"/>
+          </linearGradient>
+          <linearGradient id="woodTop" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ecc28e"/><stop offset="1" stop-color="#d39a5c"/>
+          </linearGradient>
+          <!-- Varilla metálica -->
+          <linearGradient id="metal" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#8a8f98"/><stop offset=".45" stop-color="#f1f3f6"/><stop offset="1" stop-color="#7d828b"/>
+          </linearGradient>
+          <!-- Cuentas: brillo de bolita -->
+          <radialGradient id="b-c" cx=".32" cy=".28" r=".85">
+            <stop offset="0" stop-color="#fff0b0"/><stop offset=".45" stop-color="#f5b800"/><stop offset="1" stop-color="#b98800"/>
+          </radialGradient>
+          <radialGradient id="b-d" cx=".32" cy=".28" r=".85">
+            <stop offset="0" stop-color="#ffc2c4"/><stop offset=".45" stop-color="#e5484d"/><stop offset="1" stop-color="#9e2227"/>
+          </radialGradient>
+          <radialGradient id="b-u" cx=".32" cy=".28" r=".85">
+            <stop offset="0" stop-color="#c5dcff"/><stop offset=".45" stop-color="#2d7ff0"/><stop offset="1" stop-color="#14489a"/>
+          </radialGradient>
+          <filter id="shadow" x="-20%" y="-30%" width="140%" height="170%">
+            <feDropShadow dx="0" dy="3" stdDeviation="2" flood-opacity=".3"/>
+          </filter>
+        </defs>
+
+        <!-- Sombra en la mesa -->
+        <ellipse cx="300" cy="548" rx="292" ry="10" fill="rgba(80,50,20,.18)"/>
+        <!-- Base de madera -->
+        <rect x="10" y="466" width="580" height="78" rx="16" fill="url(#wood)"/>
+        <rect x="10" y="466" width="580" height="16" rx="8" fill="url(#woodTop)"/>
+        <path d="M30 500 C180 494 300 506 570 498 M30 524 C200 518 380 530 570 522" stroke="#7a4a20" stroke-width="2" fill="none" opacity=".25"/>
+        <!-- Varillas y placas con nombre/valor (se completan desde JavaScript) -->
+        <g id="rods"></g>
+        <!-- Capas de cuentas, una por varilla -->
+        <g id="beads0"></g><g id="beads1"></g><g id="beads2"></g>
+        <!-- Zonas táctiles (transparentes, encima de todo) -->
+        <g id="hits"></g>
+      </svg>
+
+      <!-- Contador y botones bajo cada varilla -->
+      <div class="colbar" id="colbar"></div>
+      <p class="tip" id="tip">👆 Toca una varilla para poner una cuenta. Toca la cuenta de arriba para quitarla.</p>
+      <div class="canje" id="canje" role="status" hidden></div>
+      <div class="controls" id="controls"></div>
+    </section>
+
+    <div class="side">
+      <!-- Número formado -->
+      <section class="numcard card" aria-live="polite">
+        <h3 id="numTitle">Número formado</h3>
+        <div class="big" id="big">0</div>
+        <div class="words" id="words">cero</div>
+        <div id="numDetails">
+          <table class="pv" aria-label="Cuentas en cada posición">
+            <thead><tr><th class="c">C</th><th class="d">D</th><th class="u">U</th></tr></thead>
+            <tbody><tr><td class="c" id="pv0">0</td><td class="d" id="pv1">0</td><td class="u" id="pv2">0</td></tr></tbody>
+          </table>
+          <div class="decomp" id="decomp"></div>
+          <div class="units" id="units" style="margin-top:8px"></div>
+        </div>
+      </section>
+      <!-- Bloques de base 10 -->
+      <section class="blocks card">
+        <h3>🧱 Así se ve con bloques</h3>
+        <div id="blocks"></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+/* =========================================================
+   CONFIGURACIÓN
+   ========================================================= */
+const PLACES = [
+  { key:'C', name:'Centenas', value:100, cls:'c', singular:'centena', plural:'centenas', piece:'flat',  text:'#3a2c00', dark:'#a07800', soft:'#fff4cc' },
+  { key:'D', name:'Decenas',  value:10,  cls:'d', singular:'decena',  plural:'decenas',  piece:'rodb',  text:'#ffffff', dark:'#a8262b', soft:'#fde3e4' },
+  { key:'U', name:'Unidades', value:1,   cls:'u', singular:'unidad',  plural:'unidades', piece:'cubeb', text:'#ffffff', dark:'#1650a3', soft:'#e0ebfd' }
+];
+const MAX_BEADS = 9;
+const COL_X = [100, 300, 500];               // posición horizontal de cada varilla en el dibujo
+const BEAD_STEP = 34;                        // separación vertical entre cuentas
+const slotY = (k) => 440 - k * BEAD_STEP;    // k = 0 es la cuenta de abajo
+const LEVEL_NAMES = { 1:'2 cifras', 2:'3 cifras', 3:'con ceros' };
+const NS = 'http://www.w3.org/2000/svg';
+
+const state = {
+  counts: [0, 0, 0],   // cuentas en C, D, U
+  locked: false,
+  reveal: true,        // mostrar el número y los bloques
+  mode: 'libre',
+  level: 1, levelWins: 0, points: 0,
+  target: null, options: null, attempts: 0, answered: false,
+  canjeCol: null
+};
+
+const $ = (s) => document.querySelector(s);
+const svg = $('#abacusSvg');
+const beadEls = [[], [], []];
+const colUI = [];
+
+/* =========================================================
+   UTILIDADES
+   ========================================================= */
+const digitsOf = (n) => [Math.floor(n / 100) % 10, Math.floor(n / 10) % 10, n % 10];
+const valueOf = (c) => c[0] * 100 + c[1] * 10 + c[2];
+const randInt = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const plural = (n, s, p) => (n === 1 ? s : p);
+function shuffle(a){ for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function firstIdx(n){ const i = digitsOf(n).findIndex(d => d > 0); return i < 0 ? 2 : i; }
+
+/* Número en palabras (0 a 999) */
+const UN = ['cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince',
+  'dieciséis','diecisiete','dieciocho','diecinueve','veinte','veintiuno','veintidós','veintitrés','veinticuatro','veinticinco',
+  'veintiséis','veintisiete','veintiocho','veintinueve'];
+const DEC = ['','','','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa'];
+const CEN = ['','ciento','doscientos','trescientos','cuatrocientos','quinientos','seiscientos','setecientos','ochocientos','novecientos'];
+function under100(n){ if (n < 30) return UN[n]; const d = Math.floor(n / 10), u = n % 10; return DEC[d] + (u ? ' y ' + UN[u] : ''); }
+function words(n){
+  if (n === 0) return 'cero';
+  if (n === 100) return 'cien';
+  const c = Math.floor(n / 100), r = n % 100;
+  return [c ? CEN[c] : '', r ? under100(r) : ''].filter(Boolean).join(' ');
+}
+/* "3 C + 0 D + 5 U" (muestra los ceros intermedios) */
+function unitsHTML(n){
+  const d = digitsOf(n), s = firstIdx(n);
+  return d.slice(s).map((x, k) => `<span class="tag ${PLACES[s + k].cls}">${x} ${PLACES[s + k].key}</span>`).join('<span class="op">+</span>');
+}
+function unitsText(n){
+  const d = digitsOf(n), s = firstIdx(n);
+  return d.slice(s).map((x, k) => `${x} ${PLACES[s + k].key}`).join(' + ');
+}
+function decompHTML(n){
+  return digitsOf(n).map((x, i) => x ? `<span class="chip ${PLACES[i].cls}">${x * PLACES[i].value}</span>` : '')
+    .filter(Boolean).join('<span class="op">+</span>');
+}
+function coloredNumberHTML(n){
+  const s = String(n);
+  return s.split('').map((ch, k) => `<span class="dg ${PLACES[3 - s.length + k].cls}">${ch}</span>`).join('');
+}
+
+/* =========================================================
+   DIBUJO DEL ÁBACO (varillas, placas y zonas táctiles)
+   ========================================================= */
+function buildAbacus(){
+  const rods = $('#rods'), hits = $('#hits'), bar = $('#colbar');
+  PLACES.forEach((p, i) => {
+    const x = COL_X[i];
+    // Placa con letra y valor en la base (no depende solo del color)
+    rods.insertAdjacentHTML('beforeend', `
+      <rect x="${x - 64}" y="486" width="128" height="50" rx="12" fill="${p.soft}" stroke="${p.dark}" stroke-width="3"/>
+      <text x="${x}" y="512" text-anchor="middle" class="bead-txt" style="font-size:24px" fill="${p.dark}">${p.key}</text>
+      <text x="${x}" y="530" text-anchor="middle" class="bead-txt" style="font-size:15px" fill="${p.dark}">vale ${p.value}</text>
+      <rect x="${x - 6}" y="98" width="12" height="374" rx="6" fill="url(#metal)"/>
+      <circle cx="${x}" cy="98" r="10" fill="url(#metal)" stroke="#6f747c" stroke-width="1.5"/>`);
+    // Zona táctil de la varilla
+    const hit = document.createElementNS(NS, 'rect');
+    hit.setAttribute('class', 'hit');
+    hit.setAttribute('x', x - 96); hit.setAttribute('y', 30);
+    hit.setAttribute('width', 192); hit.setAttribute('height', 440);
+    hit.setAttribute('fill', 'transparent');
+    hit.addEventListener('click', (e) => onRodTap(i, e));
+    hits.appendChild(hit);
+    // Contador y botones +/− (también sirven con teclado)
+    const box = document.createElement('div');
+    box.className = `colctl ${p.cls}`;
+    box.innerHTML = `
+      <div class="cnt"><b>0</b> <span>cuentas</span></div>
+      <div class="cval">= 0</div>
+      <div class="steps">
+        <button class="step minus" type="button" aria-label="Quitar una cuenta de ${p.name}">−</button>
+        <button class="step plus" type="button" aria-label="Agregar una cuenta a ${p.name}">+</button>
+      </div>`;
+    bar.appendChild(box);
+    box.querySelector('.minus').addEventListener('click', () => removeBead(i));
+    box.querySelector('.plus').addEventListener('click', () => addBead(i));
+    colUI.push({ box, cnt: box.querySelector('.cnt b'), lbl: box.querySelector('.cnt span'), val: box.querySelector('.cval') });
+  });
+}
+
+/* Toque en la varilla: sobre la pila de cuentas → quita la de arriba; en el espacio libre → agrega */
+function onRodTap(i, e){
+  if (state.locked) return;
+  const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  const y = pt.matrixTransform(svg.getScreenCTM().inverse()).y;
+  const n = state.counts[i];
+  if (n > 0 && y >= slotY(n - 1) - 18) removeBead(i); else addBead(i);
+}
+
+/* Crea una cuenta (bolita) dibujada */
+function makeBead(i){
+  const p = PLACES[i];
+  const g = document.createElementNS(NS, 'g');
+  g.setAttribute('class', 'bead');
+  g.innerHTML = `
+    <rect x="-64" y="-16" width="128" height="32" rx="16" fill="url(#b-${p.cls})" stroke="${p.dark}" stroke-width="2" filter="url(#shadow)"/>
+    <ellipse cx="-26" cy="-7" rx="26" ry="5" fill="#fff" opacity=".45"/>
+    <text x="0" y="6" text-anchor="middle" class="bead-txt" fill="${p.text}">${p.key}</text>`;
+  return g;
+}
+/* Sincroniza el dibujo con state.counts[i]: las cuentas caen o suben con animación */
+function syncBeads(i, stagger = false){
+  const arr = beadEls[i], n = state.counts[i], x = COL_X[i], layer = $('#beads' + i);
+  let added = 0;
+  while (arr.length < n){
+    const k = arr.length, g = makeBead(i);
+    g.style.transform = `translate(${x}px, -40px)`;
+    g.style.opacity = '0';
+    layer.appendChild(g); arr.push(g);
+    void g.getBoundingClientRect();                       // fuerza el punto de partida de la animación
+    g.style.transitionDelay = stagger ? (added * 70 + i * 140) + 'ms' : '0ms';
+    g.style.transform = `translate(${x}px, ${slotY(k)}px)`;
+    g.style.opacity = '1';
+    added++;
+  }
+  while (arr.length > n){
+    const g = arr.pop();
+    g.style.transitionDelay = '0ms';
+    g.style.transform = `translate(${x}px, -40px)`;
+    g.style.opacity = '0';
+    setTimeout(() => g.remove(), 550);
+  }
+}
+function syncAll(stagger){ [0, 1, 2].forEach(i => syncBeads(i, stagger)); }
+
+/* =========================================================
+   AGREGAR / QUITAR CUENTAS Y CANJE (10 por 1)
+   ========================================================= */
+function addBead(i){
+  if (state.locked) return;
+  if (state.counts[i] >= MAX_BEADS){ showCanje(i); shake(colUI[i].box); return; }
+  state.counts[i]++;
+  syncBeads(i);
+  update();
+}
+function removeBead(i){
+  if (state.locked || state.counts[i] <= 0) return;
+  state.counts[i]--;
+  syncBeads(i);
+  update();
+}
+function setCounts(arr, stagger = true){
+  state.counts = arr.slice();
+  syncAll(stagger);
+  update();
+}
+/* Al intentar la décima cuenta: explicar la regla y ofrecer el canje */
+function showCanje(i){
+  const box = $('#canje'), p = PLACES[i];
+  state.canjeCol = i;
+  let html = `💡 Recuerda: cada posición puede tener de 0 a 9 cuentas.`;
+  if (i === 0){
+    html += `<br>¡Este ábaco llega hasta el 999!`;
+  } else {
+    const up = PLACES[i - 1];
+    html += `<br>¡Pero <b>10 ${p.plural}</b> forman <b>1 ${up.singular}</b>!`;
+    if (state.counts[i - 1] < MAX_BEADS){
+      html += `<br><button class="btn primary small" type="button" id="canjeBtn">🔄 Cambiar 10 ${p.key} por 1 ${up.key}</button>`;
+    }
+  }
+  box.innerHTML = html; box.hidden = false;
+  const b = $('#canjeBtn');
+  if (b) b.addEventListener('click', () => doCanje(i));
+}
+function doCanje(i){
+  const p = PLACES[i], up = PLACES[i - 1];
+  state.counts[i] = 0;
+  state.counts[i - 1]++;
+  hideCanje();
+  syncBeads(i); syncBeads(i - 1);
+  update();
+  showToast(`🔄 ¡Canje hecho! 10 ${p.key} = 1 ${up.key}`);
+}
+function hideCanje(){ state.canjeCol = null; $('#canje').hidden = true; }
+
+/* =========================================================
+   ACTUALIZAR NÚMERO, TABLA, DESCOMPOSICIÓN Y BLOQUES
+   ========================================================= */
+let lastCounts = [0, 0, 0];
+function update(){
+  const n = valueOf(state.counts);
+  const before = lastCounts.slice();   // para animar solo los bloques nuevos
+  PLACES.forEach((p, i) => {
+    const c = state.counts[i];
+    // En "¿Qué número es?" los contadores se ocultan hasta responder (el niño debe contar)
+    colUI[i].cnt.textContent = state.reveal ? c : '?';
+    colUI[i].lbl.textContent = state.reveal ? plural(c, 'cuenta', 'cuentas') : 'cuentas';
+    colUI[i].val.textContent = state.reveal ? `= ${c * p.value}` : '= ?';
+  });
+  $('#abacusCard').classList.toggle('locked-ui', state.locked);
+  svg.classList.toggle('locked', state.locked);
+  $('#tip').hidden = state.locked;
+  if (state.canjeCol !== null && state.counts[state.canjeCol] < MAX_BEADS) hideCanje();
+
+  if (state.reveal){
+    $('#big').innerHTML = coloredNumberHTML(n);
+    $('#words').textContent = words(n);
+    $('#numDetails').hidden = false;
+    PLACES.forEach((p, i) => { $('#pv' + i).textContent = state.counts[i]; });
+    $('#decomp').innerHTML = n
+      ? `${decompHTML(n)}<span class="op">=</span><span class="chip total">${n}</span>`
+      : '<span class="empty-msg">👆 Pon cuentas en el ábaco</span>';
+    $('#units').innerHTML = n ? unitsHTML(n) : '';
+    renderBlocks(before);
+  } else {
+    $('#big').textContent = '?';
+    $('#words').textContent = '';
+    $('#numDetails').hidden = true;
+    $('#blocks').innerHTML = '<div class="blocks-hidden">🙈 Los bloques aparecen cuando respondas</div>';
+  }
+  lastCounts = state.counts.slice();
+}
+/* Bloques: placas (100), barras (10) y cubitos (1) */
+function renderBlocks(before){
+  $('#blocks').innerHTML = `<div class="blocks-row">${PLACES.map((p, i) => {
+    const c = state.counts[i];
+    const pieces = c
+      ? Array.from({ length: c }, (_, k) => `<i class="${p.piece}${p.piece === 'flat' ? ' grid-bg' : ''}${k >= before[i] ? ' new' : ''}"></i>`).join('')
+      : '<span class="ghost">0</span>';
+    return `<div class="bgroup ${p.cls}">
+        <div class="pieces">${pieces}</div>
+        <div class="blabel">${c} ${plural(c, p.singular, p.plural)}<b>= ${c * p.value}</b></div>
+      </div>`;
+  }).join('')}</div>`;
+}
+
+/* =========================================================
+   AYUDAS VISUALES
+   ========================================================= */
+let toastTimer = null;
+function showToast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+function shake(el){ el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+function confetti(){
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const colors = ['#f5b800', '#e5484d', '#2d7ff0', '#1fa25a'];
+  const box = document.createElement('div'); box.className = 'confetti';
+  for (let k = 0; k < 60; k++){
+    const p = document.createElement('i');
+    p.style.left = Math.random() * 100 + '%';
+    p.style.background = colors[k % 4];
+    p.style.animationDuration = (1.3 + Math.random() * 1.4) + 's';
+    p.style.animationDelay = (Math.random() * .35) + 's';
+    box.appendChild(p);
+  }
+  document.body.appendChild(box);
+  setTimeout(() => box.remove(), 3200);
+}
+function award(){
+  state.points++;
+  const el = $('#points');
+  el.textContent = `Puntos: ${state.points} ⭐`;
+  el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  if (state.points % 5 === 0) showToast(`🏆 ¡Excelente trabajo! Ya tienes ${state.points} ⭐`);
+  // Cada 3 aciertos en un nivel, se sube al siguiente
+  state.levelWins++;
+  if (state.levelWins >= 3 && state.level < 3){
+    state.level++; state.levelWins = 0;
+    setTimeout(() => showToast(`🚀 ¡Subes al nivel ${state.level}: ${LEVEL_NAMES[state.level]}!`), 1200);
+  }
+}
+function setControls(list){
+  const box = $('#controls'); box.innerHTML = '';
+  list.forEach(b => {
+    const el = document.createElement('button');
+    el.type = 'button'; el.className = 'btn ' + (b.cls || ''); el.textContent = b.label;
+    if (b.id) el.id = b.id;
+    el.addEventListener('click', b.onClick);
+    box.appendChild(el);
+  });
+}
+function feedback(type, html){ const fb = $('#fb'); if (!fb) return; fb.className = 'feedback ' + (type || ''); fb.innerHTML = html || ''; }
+
+/* =========================================================
+   GENERADOR DE NÚMEROS POR NIVEL
+   Nivel 1: 2 cifras · Nivel 2: 3 cifras · Nivel 3: 3 cifras con ceros (105, 230, 400…)
+   ========================================================= */
+function genNumber(level, avoid){
+  let n;
+  do {
+    if (level === 1) n = randInt(1, 9) * 10 + randInt(1, 9);
+    else if (level === 2) n = randInt(1, 9) * 100 + randInt(1, 9) * 10 + randInt(0, 9);
+    else {
+      const pat = [[0, 1], [1, 0], [0, 0]][randInt(0, 2)];
+      n = randInt(1, 9) * 100 + (pat[0] ? randInt(1, 9) : 0) * 10 + (pat[1] ? randInt(1, 9) : 0);
+    }
+  } while (n === avoid);
+  return n;
+}
+/* Opciones para "¿Qué número es?": incluye errores típicos (quitar ceros, cifras al revés…) */
+function numberOptions(n){
+  const s = String(n).split(''), cands = [];
+  const noZeros = Number(String(n).replace(/0/g, ''));
+  if (s.length > 1 && s[s.length - 1] !== '0') cands.push(Number(s.slice().reverse().join('')));
+  for (let k = 0; k < s.length - 1; k++){ const a = s.slice(); [a[k], a[k + 1]] = [a[k + 1], a[k]]; if (a[0] !== '0') cands.push(Number(a.join(''))); }
+  for (let k = 0; k < s.length; k++) for (const dl of [-1, 1]){
+    const a = s.map(Number); a[k] += dl;
+    if (a[k] < 0 || a[k] > 9 || a[0] === 0) continue;
+    cands.push(Number(a.join('')));
+  }
+  const out = [n], seen = new Set([n]);
+  const first = noZeros && noZeros !== n ? [noZeros] : [];
+  for (const c of [...first, ...shuffle(cands)]){
+    if (c > 0 && !seen.has(c)){ seen.add(c); out.push(c); }
+    if (out.length === 3) break;
+  }
+  return shuffle(out);
+}
+
+/* =========================================================
+   MODOS
+   ========================================================= */
+function setMode(mode){
+  state.mode = mode;
+  document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.mode === mode ? 'true' : 'false'));
+  hideCanje();
+  if (mode === 'libre') startLibre(); else newChallenge();
+}
+function levelChips(){
+  return `<div class="levels" role="group" aria-label="Nivel">${[1, 2, 3].map(l =>
+    `<button class="lvl ${l === state.level ? 'on' : ''}" type="button" data-l="${l}">Nivel ${l}<small>${LEVEL_NAMES[l]}</small></button>`).join('')}</div>`;
+}
+function bindLevelChips(){
+  document.querySelectorAll('.lvl').forEach(b => b.addEventListener('click', () => {
+    state.level = Number(b.dataset.l); state.levelWins = 0; newChallenge();
+  }));
+}
+
+/* ---------- 1. JUEGO LIBRE ---------- */
+function startLibre(){
+  state.locked = false; state.reveal = true;
+  $('#numTitle').textContent = 'El número que formaste es:';
+  $('#task').innerHTML = `
+    <h2>🎨 Juego libre</h2>
+    <p class="lead">Coloca las cuentas y descubre qué número puedes formar. Mira cómo cambian los bloques.</p>`;
+  setControls([
+    { label: '↩ Reiniciar', onClick: () => setCounts([0, 0, 0], false) },
+    { label: '🎲 Número sorpresa', cls: 'primary', onClick: () => setCounts([randInt(1, 9), randInt(0, 9), randInt(0, 9)]) }
+  ]);
+  setCounts([0, 0, 0], false);
+}
+
+function newChallenge(){
+  state.target = genNumber(state.level, state.target);
+  state.attempts = 0; state.answered = false;
+  hideCanje();
+  if (state.mode === 'construye') renderConstruye(); else renderQuees();
+}
+
+/* ---------- 2. CONSTRUYE EL NÚMERO ---------- */
+function renderConstruye(){
+  const n = state.target;
+  state.locked = false; state.reveal = true;
+  $('#numTitle').textContent = 'Número formado';
+  $('#task').innerHTML = `
+    <h2>🧩 Construye el número</h2>
+    ${levelChips()}
+    <p class="prompt">Representa en el ábaco el número:</p>
+    <div class="target">${n}</div>
+    <div class="target-words">${words(n)}</div>
+    <div class="feedback" id="fb" aria-live="polite"></div>`;
+  bindLevelChips();
+  setControls([
+    { label: '↩ Reiniciar', onClick: () => setCounts([0, 0, 0], false) },
+    { label: '🎯 Nuevo reto', onClick: newChallenge },
+    { label: '✓ Comprobar', cls: 'primary', onClick: checkConstruye }
+  ]);
+  setCounts([0, 0, 0], false);
+}
+function checkConstruye(){
+  const n = state.target;
+  if (valueOf(state.counts) === n){
+    state.answered = true; award();
+    feedback('ok', `🎉 <b>¡Muy bien!</b><div class="eqline">${unitsText(n)} = ${n}</div>${words(n)}`);
+    state.locked = true; update();
+    setControls([{ label: 'Siguiente reto ➜', cls: 'next', id: 'nextBtn', onClick: newChallenge }]);
+    $('#nextBtn').focus({ preventScroll: true });
+    confetti();
+    return;
+  }
+  // Pista graduada: primero la columna, luego el dato
+  state.attempts++;
+  const td = digitsOf(n), i = state.counts.findIndex((c, k) => c !== td[k]), p = PLACES[i];
+  const hint = state.attempts === 1
+    ? `Mira la columna <b>${p.key}</b> 👀`
+    : `Mira la columna <b>${p.key}</b>. El número ${n} tiene <b>${td[i]} ${plural(td[i], p.singular, p.plural)}</b>.`;
+  feedback('hint', `💡 <b>¡Casi! Observa las columnas y vuelve a intentarlo.</b><br>${hint}`);
+  shake(colUI[i].box);
+}
+
+/* ---------- 3. ¿QUÉ NÚMERO ES? ---------- */
+function renderQuees(){
+  const n = state.target;
+  state.options = numberOptions(n);
+  state.locked = true; state.reveal = false;
+  $('#numTitle').textContent = 'Número formado';
+  $('#task').innerHTML = `
+    <h2>🔎 ¿Qué número es?</h2>
+    ${levelChips()}
+    <p class="prompt">Cuenta las cuentas de cada varilla. ¿Qué número muestra el ábaco?</p>
+    <div class="options">${state.options.map(o => `<button class="option" type="button" data-n="${o}">${o}</button>`).join('')}</div>
+    <div class="feedback" id="fb" aria-live="polite"></div>`;
+  bindLevelChips();
+  document.querySelectorAll('.option').forEach(b => b.addEventListener('click', () => answerQuees(b)));
+  setControls([{ label: '🎯 Nuevo reto', onClick: newChallenge }]);
+  setCounts(digitsOf(n));
+}
+function answerQuees(btn){
+  if (state.answered || btn.disabled) return;
+  const n = state.target, chosen = Number(btn.dataset.n);
+  if (chosen === n){
+    state.answered = true;
+    if (state.attempts === 0) award();
+    btn.classList.add('correct');
+    document.querySelectorAll('.option').forEach(b => { b.disabled = true; });
+    feedback('ok', `🎉 <b>¡Correcto! El ábaco muestra el ${n}.</b><div class="eqline">${unitsText(n)} = ${n}</div>${words(n)}`);
+    state.reveal = true; update();
+    setControls([{ label: 'Siguiente reto ➜', cls: 'next', id: 'nextBtn', onClick: newChallenge }]);
+    $('#nextBtn').focus({ preventScroll: true });
+    confetti();
+  } else {
+    state.attempts++;
+    btn.classList.add('wrong'); btn.disabled = true;
+    const td = digitsOf(n), cd = digitsOf(chosen), i = td.findIndex((d, k) => d !== cd[k]), p = PLACES[i];
+    feedback('hint', `💡 <b>¡Casi! Inténtalo otra vez.</b><br>Cuenta despacio las cuentas de la varilla <b>${p.key}</b> (${p.name.toLowerCase()}). ¿Cuántas hay?`);
+    shake(colUI[i].box);
+  }
+}
+
+/* =========================================================
+   INICIO
+   ========================================================= */
+buildAbacus();
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => setMode(t.dataset.mode)));
+setMode('libre');
+</script>
+</body>
+</html>
